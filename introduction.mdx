@@ -1,0 +1,85 @@
+---
+title: "Repo Security Bot"
+description: "Automated security scanning for GitHub repositories — five tools, zero setup."
+---
+
+<img
+  src="https://media.brand.dev/5ffd6ce4-2434-4b4b-920a-f8cacac8b48b.svg"
+  alt="Repo Security Bot"
+  style={{ maxWidth: "260px", marginBottom: "2rem" }}
+/>
+
+## What is Repo Security Bot?
+
+**Repo Security Bot** is a plug-and-play GitHub Actions security scanner that automatically runs **five industry-standard security tools** on every push, pull request, or scheduled scan.
+
+It aggregates all findings into a clean `security-summary.md` and automatically creates a **GitHub Issue** containing the complete results — giving your team immediate, actionable vulnerability insights with zero manual effort.
+
+<CardGroup cols={2}>
+  <Card title="Quickstart" icon="rocket" href="/quickstart">
+    Add Repo Security Bot to your repository in under 5 minutes
+  </Card>
+  <Card title="Security Scanners" icon="shield-check" href="/scanners/overview">
+    Learn what each of the five scanners detects
+  </Card>
+  <Card title="Configuration" icon="gear" href="/configuration/workflow-setup">
+    Customize triggers, permissions, and scheduling
+  </Card>
+  <Card title="Reports & Output" icon="file-lines" href="/reports/security-summary">
+    Understand the security summary and GitHub Issues
+  </Card>
+</CardGroup>
+
+## How it works
+
+<Steps>
+  <Step title="Add a workflow file to your repo">
+    Create `.github/workflows/run-security-bot.yml` in your repository and call the reusable workflow hosted in `arinagrawal05/repo-security-bot`.
+  </Step>
+  <Step title="Bot runs on every push or PR">
+    On every push to `main`, pull request, or scheduled cron trigger, the bot spins up five parallel scanner jobs.
+  </Step>
+  <Step title="Findings are aggregated">
+    All five scanner results are collected, parsed, and merged into a single `security-summary.md` artifact.
+  </Step>
+  <Step title="GitHub Issue is created automatically">
+    A GitHub Issue is opened in your repository with the full security report — severity counts, findings tables, and recommended fixes.
+  </Step>
+</Steps>
+
+## Five integrated scanners
+
+| Tool | What it detects |
+|------|----------------|
+| **Gitleaks** | Hardcoded secrets, API keys, credentials, tokens |
+| **Bandit** | Python security issues: injections, unsafe subprocess, weak crypto |
+| **Checkov** | IaC misconfigurations (Terraform, CloudFormation, Kubernetes) |
+| **Nuclei** | Vulnerability scans using community templates (CVE, misconfig, exposures) |
+| **Dockle** | Docker image best practices, hardening issues, CIS violations |
+
+## Key features
+
+<CardGroup cols={2}>
+  <Card title="Zero setup" icon="bolt">
+    A single workflow file is all you need. No agents to install, no dashboards to configure.
+  </Card>
+  <Card title="Parallel scanning" icon="arrows-split-up-and-left">
+    All five scanners run in parallel as independent GitHub Actions jobs.
+  </Card>
+  <Card title="Auto Issue creation" icon="circle-exclamation">
+    Each scan run automatically opens a GitHub Issue with the aggregated findings.
+  </Card>
+  <Card title="Flexible triggers" icon="clock">
+    Run on push, pull request, manual dispatch, or on a daily/weekly cron schedule.
+  </Card>
+  <Card title="Artifact exports" icon="box-archive">
+    Raw JSON and clean Markdown reports are uploaded as workflow artifacts for every scan.
+  </Card>
+  <Card title="Secrets-safe reporting" icon="eye-slash">
+    Gitleaks reports omit actual secret values — only rule ID, file, and line are reported.
+  </Card>
+</CardGroup>
+
+## License
+
+Repo Security Bot is open source under the [MIT License](https://github.com/arinagrawal05/repo-security-bot/blob/main/LICENSE).

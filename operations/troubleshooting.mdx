@@ -1,0 +1,78 @@
+---
+title: "Troubleshooting"
+description: "Diagnose and fix common issues with Repo Security Bot"
+---
+
+<AccordionGroup>
+
+  <Accordion title="No GitHub Issue is created after the scan">
+    The `Create GitHub Issue` step in the `generate-summary` job uses `gh issue create` with `GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}`. If no issue appears, check the following:
+
+    - Verify `issues: write` is listed under `permissions` in your calling workflow.
+    - `GH_TOKEN` is automatically sourced from `secrets.GITHUB_TOKEN` — no manual configuration is required, but the permission must be explicitly granted.
+    - Confirm the `generate-summary` job completed successfully. It runs after all five scanner jobs (`gitleaks`, `bandit`, `checkov`, `dockle`, `nuclei`) via `needs:`.
+    - Open the Actions log and inspect the **Create GitHub Issue** step for any error output.
+  </Accordion>
+
+  <Accordion title="Checkov finds no results / scan shows 'No Terraform files found'">
+    Checkov scans for Terraform files using `find . -name "*.tf"`. If it reports zero results:
+
+    - Verify that `.tf` files exist somewhere in the repository — either in the root or a subdirectory.
+    - The workflow runs `checkov --directory .` from the workspace root. Files nested inside ignored paths will not be found.
+    - Check the **Debug - Show Workspace Contents** step in the Actions log. It prints all non-`.git` files and lists any `.tf` files it finds, which helps confirm whether Terraform files are present and accessible.
+
+    <Note>
+      If no `.tf` files are found, the workflow writes an empty array (`[]`) to `checkov_results.json` and the Markdown report will show no findings rather than failing the job.
+    </Note>
+  </Accordion>
+
+  <Accordion title="Bandit is skipped / shows 'No Python files found'">
+    Before installing and running Bandit, the workflow checks for the presence of `*.py` files using `find . -name "*.py"`.
+
+    - Bandit only runs if Python files exist in the repository. If your repo contains no Python code, Bandit is intentionally and gracefully skipped.
+    - When skipped, the report will contain: `No Python files found, skipped Bandit scan.`
+    - Check the **Run Bandit** step output in the Actions log to confirm whether the file check found any `.py` files.
+
+    <Info>
+      This behavior is by design — skipping Bandit on non-Python repos avoids false "nothing found" noise in the security summary.
+    </Info>
+  </Accordion>
+
+  <Accordion title="Nuclei scan fails / APP FAILED TO START">
+    The Nuclei scanner builds your Docker image and runs it locally, then points Nuclei at `http://localhost:3000`.
+
+    - The workflow maps host port `3000` to container port `8080` (`-p 3000:8080`). Your application must listen on port `8080` inside the container.
+    - The startup check polls `curl -s http://localhost:3000` for up to **60 seconds**. If the app does not respond within that window, the step exits with `APP FAILED TO START` and prints the container logs.
+    - Verify your `Dockerfile` builds without errors by reviewing the **Build Docker Image** step in the Actions log.
+    - Ensure your app starts and binds to the correct port before the timeout expires.
+  </Accordion>
+
+  <Accordion title="Dockle scan shows 'No Dockerfile found'">
+    The Dockle workflow checks for a `Dockerfile` or `Dockerfile.txt` in the **repository root** before building the image.
+
+    - If neither file is found, the step writes `No Dockerfile found, skipped Dockle scan.` to `dockle.json` and skips the scan gracefully.
+    - Ensure your Dockerfile is named exactly `Dockerfile` (or `Dockerfile.txt`) and is located in the root of the repository, not in a subdirectory.
+    - Dockerfiles in subdirectories are not detected by the current `Detect Dockerfile` step.
+  </Accordion>
+
+  <Accordion title="Gitleaks reports false positives">
+    Gitleaks is run with `--exit-code 0`, which means it **never fails the workflow** regardless of findings — it reports and moves on.
+
+    - To suppress known false positives, add a `.gitleaks.toml` configuration file to your repository root. Gitleaks will automatically pick it up via the Docker volume mount (`-v "${{ github.workspace }}":/repo`).
+    - Review the `gitleaks.json` artifact for the full list of matches, including the `RuleID`, `File`, `StartLine`, and `Author` fields.
+    - Note: the `Secret` column is intentionally omitted from the Markdown report to prevent leaking credentials in the artifact.
+  </Accordion>
+
+  <Accordion title="Missing artifacts in the summary">
+    The `generate-summary` job uses `actions/download-artifact@v4` with `path: reports/` to fetch all artifacts uploaded by the five scanner jobs.
+
+    - Each scanner must upload its artifact with the exact expected name: `gitleaks-report`, `bandit-report`, `checkov-report`, `dockle-report`, or `nuclei-report`.
+    - The summary script then looks for files at paths like `reports/gitleaks-report/gitleaks.md`. If the artifact name or filename does not match, the section will be missing from the final report.
+    - Check the **Debug list reports** step (`ls -R reports`) to see exactly which files were downloaded and whether the expected paths are present.
+  </Accordion>
+
+</AccordionGroup>
+
+<Tip>
+  For any issue not covered here, open the **Actions** tab in your repository, select the failing workflow run, and expand each step to read the full log output. Most failures include descriptive error messages directly in the step logs.
+</Tip>

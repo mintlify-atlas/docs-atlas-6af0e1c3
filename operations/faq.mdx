@@ -1,0 +1,85 @@
+---
+title: "FAQ"
+description: "Frequently asked questions about Repo Security Bot"
+---
+
+<AccordionGroup>
+
+  <Accordion title="Does Repo Security Bot work with private repositories?">
+    Yes. The bot uses `secrets.GITHUB_TOKEN`, which GitHub automatically provides to all workflow runs — including those in private repositories. No additional tokens or configuration are required for the five core scanners (Gitleaks, Bandit, Checkov, Nuclei, Dockle).
+  </Accordion>
+
+  <Accordion title="Will the bot block my pull requests if vulnerabilities are found?">
+    No. All scanner steps are configured with `continue-on-error: true`, which means findings are reported but never cause the workflow to fail or block a merge. You control enforcement separately — for example, by adding branch protection rules that require specific checks to pass before merging.
+  </Accordion>
+
+  <Accordion title="How often should I run the scheduled scan?">
+    The default schedule is `0 12 * * *` — once daily at 12:00 UTC. This is a good baseline for most repositories.
+
+    - For high-security environments, consider running every 6 hours.
+    - Avoid scheduling more frequently than hourly to stay within GitHub Actions usage limits.
+
+    You can also trigger the workflow manually at any time using `workflow_dispatch`.
+  </Accordion>
+
+  <Accordion title="Do I need to configure SNYK_TOKEN?">
+    No. The five core scanners do not require `SNYK_TOKEN`. The `secrets: inherit` line in the example calling workflow is included for forward compatibility — if you add Snyk scanning in the future, your token will already be passed through without needing to update the workflow.
+
+    <Info>
+      `secrets: inherit` passes all of your repository's secrets to the reusable workflow. This is safe to include even if a particular secret is not currently used.
+    </Info>
+  </Accordion>
+
+  <Accordion title="Can I add custom Gitleaks rules?">
+    Yes. Add a `.gitleaks.toml` configuration file to the root of your repository. Gitleaks is run via Docker with your workspace mounted as a volume (`-v "${{ github.workspace }}":/repo`), so it will automatically detect and apply your config file.
+
+    Use `.gitleaks.toml` to define allowlist rules that suppress known false positives.
+  </Accordion>
+
+  <Accordion title="Why does each scan create a new GitHub Issue instead of updating the existing one?">
+    This is intentional. Each scan run produces a point-in-time snapshot of your repository's security posture. Creating a new issue per run makes it easy to track the history of findings over time.
+
+    Teams typically close resolved issues and keep open ones for active triage. Future versions of Repo Security Bot may add support for updating an existing issue instead.
+  </Accordion>
+
+  <Accordion title="What happens if my Dockerfile fails to build for Nuclei?">
+    The `docker build` step in `scan-nuclei.yml` does not use `|| true`, so a build failure will cause that step to fail. However, because scanner jobs use `continue-on-error: true` at the step level where applicable, the workflow continues.
+
+    If the container fails to build, Nuclei will be unable to start the application and the report will contain:
+
+    > No vulnerabilities found (or scan failed to connect).
+
+    <Warning>
+      Review the **Build Docker Image** step in the Actions log if Nuclei consistently reports no findings — it may indicate a silent build failure.
+    </Warning>
+  </Accordion>
+
+  <Accordion title="Can I run individual scanners instead of all five?">
+    Yes. Each scanner is implemented as a separate reusable workflow. You can call any of them individually from your own workflow using the `uses:` key. For example, to run only Gitleaks:
+
+    ```yaml
+    jobs:
+      gitleaks:
+        uses: arinagrawal05/repo-security-bot/.github/workflows/scan-gitleaks.yml@main
+    ```
+
+    The same pattern applies to `scan-bandit.yml`, `scan-checkov.yml`, `scan-nuclei.yml`, and `scan-dockle.yml`.
+  </Accordion>
+
+  <Accordion title="What is the example vulnerable repo?">
+    The README links to [arinagrawal05/very-vulnerable-repo](https://github.com/arinagrawal05/very-vulnerable-repo) — a deliberately insecure repository that demonstrates all five scanners in action.
+
+    Check its **Actions** tab to see live scan runs and its **Issues** tab to see the generated security summary reports.
+  </Accordion>
+
+  <Accordion title="Is Repo Security Bot suitable for production use?">
+    Repo Security Bot is designed for **automated visibility and reporting**. It gives your team continuous, zero-setup insight into security findings across all five scan categories.
+
+    For production enforcement — such as blocking merges when vulnerabilities are detected — combine it with GitHub branch protection rules that require specific check statuses to pass before a pull request can be merged.
+
+    <Note>
+      Because all scanner steps use `continue-on-error: true`, the bot will never block a merge on its own. Enforcement requires a separate policy layer.
+    </Note>
+  </Accordion>
+
+</AccordionGroup>

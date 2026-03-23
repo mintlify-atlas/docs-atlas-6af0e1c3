@@ -1,0 +1,88 @@
+---
+title: "Gitleaks"
+description: "Detect hardcoded secrets, API keys, and credentials in your codebase"
+---
+
+[Gitleaks](https://github.com/gitleaks/gitleaks) scans your entire git repository — including full commit history — for hardcoded secrets, API keys, tokens, and other credentials that should never be stored in source code.
+
+## What Gitleaks detects
+
+Gitleaks uses a library of regex rules to identify patterns that match known secret formats, including:
+
+- Cloud provider credentials (AWS, GCP, Azure access keys)
+- API tokens (GitHub, Stripe, Twilio, SendGrid, etc.)
+- Private keys (RSA, PGP, SSH)
+- Generic high-entropy strings that resemble secrets
+- Custom patterns defined in `.gitleaks.toml`
+
+Because it scans the full git history, it catches secrets that were committed and then deleted — those remain in the git object store and are still exploitable.
+
+## How the scan runs
+
+Gitleaks runs as a Docker container against the checked-out workspace:
+
+```bash
+docker run --rm -v "${{ github.workspace }}":/repo \
+  ghcr.io/gitleaks/gitleaks:latest detect \
+  --source /repo \
+  --report-path /repo/reports/gitleaks.json \
+  --report-format json \
+  --exit-code 0
+```
+
+The `--exit-code 0` flag ensures the workflow continues regardless of findings, so all other scanners still run. Results are written to `reports/gitleaks.json`.
+
+## Report format
+
+The raw JSON output is converted to a Markdown table. The report contains:
+
+1. A count of potential secrets found
+2. A table with one row per finding
+
+```markdown
+## Gitleaks Secret Scan Report
+
+### Found *3* Potential Secrets
+
+| Rule ID | File | Line | Author |
+| :--- | :--- | :--- | :--- |
+| *aws-access-token* | main.tf | 14 | Jane Doe |
+| *generic-api-key* | med.py | 18 | Jane Doe |
+| *aws-secret-access-key* | main.tf | 15 | Jane Doe |
+```
+
+<Warning>
+Actual secret values are intentionally omitted from the report. The workflow comment in `scan-gitleaks.yml` is explicit: "We deliberately DO NOT include the 'Secret' column to prevent leaking credentials in the report artifact." The artifact is uploaded to GitHub Actions and may be visible to anyone with repository access, so including secret values would defeat the purpose of the scan.
+</Warning>
+
+### Table columns
+
+| Column | Description |
+| :--- | :--- |
+| **Rule ID** | The Gitleaks rule that matched (e.g., `aws-access-token`, `github-pat`) |
+| **File** | Repository-relative path to the file containing the secret |
+| **Line** | The line number where the match starts (`StartLine` in the JSON) |
+| **Author** | The git commit author associated with the introduction of the secret |
+
+## Remediation
+
+When Gitleaks finds secrets, treat them as compromised immediately — even if you believe no one has accessed them.
+
+<Steps>
+  <Step title="Rotate the secret">
+    Go to the service that issued the credential (AWS IAM, GitHub Settings, Stripe Dashboard, etc.) and revoke or regenerate it. Do not reuse the old value.
+  </Step>
+  <Step title="Remove it from the codebase">
+    Delete the hardcoded value from your source files and replace it with an environment variable or secrets manager reference.
+  </Step>
+  <Step title="Purge the git history">
+    The secret exists in every commit it was present in. Use `git filter-repo` or BFG Repo Cleaner to rewrite history, then force-push and ask all collaborators to re-clone.
+  </Step>
+  <Step title="Store secrets correctly">
+    Use GitHub Actions secrets (`${{ secrets.MY_KEY }}`), a secrets manager (AWS Secrets Manager, HashiCorp Vault), or environment variables injected at runtime — never hardcoded values.
+  </Step>
+</Steps>
+
+## Artifact
+
+The scanner uploads the Markdown report as the `gitleaks-report` artifact. The raw JSON is not uploaded — only the sanitized Markdown table.

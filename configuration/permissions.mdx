@@ -1,0 +1,87 @@
+---
+title: "Permissions"
+description: "GitHub Actions permissions required by Repo Security Bot"
+---
+
+Repo Security Bot declares explicit permissions so it operates under the principle of least privilege. These are set in the `permissions` block of your workflow file and are passed to the reusable workflow via `secrets: inherit`.
+
+## Required Permissions
+
+| Permission | Level | Why it's needed |
+|---|---|---|
+| `contents` | `read` | Allows the bot to clone your repository code so scanners can analyse it |
+| `issues` | `write` | **Critical.** Allows the bot to create a GitHub Issue containing the full security report |
+| `checks` | `write` | Allows uploading check results to pull requests so scan status appears on the PR |
+| `actions` | `read` | Allows the `generate-summary` job to read and download artifacts produced by the scanner jobs |
+| `pull-requests` | `write` | Optional. Allows the bot to post comments directly on pull requests |
+
+<Warning>
+  `issues: write` is critical. If this permission is missing, the bot will complete all scans successfully but will fail silently when attempting to create the GitHub Issue — no security report will appear in your Issues tab.
+</Warning>
+
+## Permissions in the Workflow File
+
+The `permissions` block from the source workflow:
+
+```yaml
+permissions:
+  contents: read      # Allows the bot to clone code
+  issues: write       # Allows the bot to Create/Edit Issues (CRITICAL)
+  checks: write       # Allows uploading check results
+  pull-requests: write # Optional: if you ever want it to comment on PRs
+  actions: read
+```
+
+The `generate-summary` job also declares its own narrower permissions at the job level:
+
+```yaml
+jobs:
+  generate-summary:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+```
+
+## Workflow-Level vs Job-Level Permissions
+
+GitHub Actions allows `permissions` to be declared at two scopes:
+
+<Tabs>
+  <Tab title="Workflow level">
+    ```yaml
+    # Applies to all jobs in the workflow
+    permissions:
+      contents: read
+      issues: write
+      checks: write
+      actions: read
+      pull-requests: write
+
+    jobs:
+      call-bot:
+        uses: arinagrawal05/repo-security-bot/.github/workflows/repo-security-bot.yml@main
+        secrets: inherit
+    ```
+
+    When set at the workflow level, all jobs inherit these permissions. This is the correct place to declare them in your caller workflow so they are forwarded to the reusable workflow.
+  </Tab>
+  <Tab title="Job level">
+    ```yaml
+    jobs:
+      generate-summary:
+        runs-on: ubuntu-latest
+        permissions:
+          contents: read
+          issues: write
+    ```
+
+    Job-level permissions override the workflow-level block for that specific job. The bot's own `generate-summary` job uses this to restrict its token to only the two permissions it actually needs, even if the caller granted more.
+  </Tab>
+</Tabs>
+
+Job-level declarations take precedence over workflow-level declarations for that job. If a workflow-level block is set, any job without its own `permissions` block inherits the workflow-level permissions.
+
+<Note>
+  GitHub repositories have a default token permissions setting that controls what `GITHUB_TOKEN` can do when no `permissions` block is present. You can review and change this under **Settings → Actions → General → Workflow permissions**. If your organization enforces read-only defaults, you must explicitly declare `issues: write` (and any other write permissions) in your workflow file.
+</Note>

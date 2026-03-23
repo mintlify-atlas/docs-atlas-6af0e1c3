@@ -1,0 +1,125 @@
+---
+title: "Checkov"
+description: "Infrastructure-as-Code security and misconfiguration scanning"
+---
+
+[Checkov](https://www.checkov.io/) is a static analysis tool for Infrastructure-as-Code. It parses IaC files and checks them against a library of security and compliance policies.
+
+## What Checkov scans
+
+Checkov supports multiple IaC frameworks. The bot runs it with `--framework terraform`, targeting `.tf` files in the repository:
+
+```bash
+checkov --directory . --framework terraform --output json \
+  --output-file-path reports
+```
+
+Checkov can also scan:
+
+- **CloudFormation** — AWS template YAML/JSON
+- **Kubernetes** — deployment manifests, RBAC configs
+- **Serverless** — `serverless.yml` definitions
+- **Dockerfile** — (overlaps with Dockle)
+- **Helm** charts, **Ansible** playbooks, **Bicep** templates
+
+<Tip>
+Fix IaC issues before they reach production. A misconfigured S3 bucket or open security group in a Terraform file will be deployed exactly as written — Checkov catches these misconfigurations at the PR stage, before `terraform apply` runs.
+</Tip>
+
+## Report format
+
+Checkov outputs one result block per check type (e.g., `terraform`). Each block contains:
+
+1. A summary with FAILED / PASSED / SKIPPED counts
+2. A list of details for every failed check
+
+```markdown
+## Checkov IaC Security Report
+
+### terraform Scan
+- 🔴 **FAILED:** 8
+- 🟢 **PASSED:** 3
+- ⚪ **SKIPPED:** 0
+
+#### Issues Found
+
+- 🔴 **CKV_AWS_18: Access logging should be enabled for S3 bucket**  
+  **Resource:** `aws_s3_bucket.public_bucket`  
+  **File:** `main.tf:18`  
+  **Guideline:** https://docs.bridgecrew.io/docs/s3_13-enable-logging
+
+- 🔴 **CKV_AWS_19: Ensure all data stored in the S3 bucket is securely encrypted**  
+  **Resource:** `aws_s3_bucket.public_bucket`  
+  **File:** `main.tf:18`  
+  **Guideline:** https://docs.bridgecrew.io/docs/s3_14-data-encrypted-at-rest
+```
+
+### Failed check fields
+
+| Field | Description |
+| :--- | :--- |
+| **check_id** | Unique policy identifier (e.g., `CKV_AWS_19`) |
+| **check_name** | Human-readable description of the policy |
+| **resource** | The Terraform resource the check ran against |
+| **file_path** | Filename and starting line number |
+| **guideline** | Link to remediation documentation |
+
+## Example findings from `main.tf`
+
+The source repository includes an intentionally vulnerable `main.tf` to demonstrate what Checkov catches. The file contains three categories of issues:
+
+<Tabs>
+  <Tab title="Public S3 bucket">
+    ```hcl
+    resource "aws_s3_bucket" "public_bucket" {
+      bucket = "vulnerable-test-bucket-example"
+      acl    = "public-read"
+
+      versioning {
+        enabled = false
+      }
+
+      # No encryption block — Checkov flags CKV_AWS_19
+    }
+    ```
+
+    Checkov flags this for:
+    - Public ACL (`acl = "public-read"`)
+    - No server-side encryption configured
+    - Versioning disabled
+    - No access logging enabled
+  </Tab>
+  <Tab title="Open security group">
+    ```hcl
+    resource "aws_security_group" "bad_sg" {
+      name        = "insecure-sg"
+      description = "Security group with open ingress"
+      vpc_id      = "vpc-123456"
+
+      ingress {
+        from_port   = 0
+        to_port     = 65535
+        protocol    = "tcp"
+        cidr_blocks = ["0.0.0.0/0"]
+      }
+    }
+    ```
+
+    The ingress rule allows all TCP traffic from any IP on all ports. Checkov flags this as `CKV_AWS_25` (unrestricted ingress) and `CKV_AWS_24`.
+  </Tab>
+  <Tab title="Hardcoded credentials">
+    ```hcl
+    provider "aws" {
+      region     = "us-east-1"
+      access_key = "AKIA1234567890VULNERABLE"
+      secret_key = "super-insecure-hardcoded-secret"
+    }
+    ```
+
+    Hardcoding AWS credentials directly in the provider block is flagged by Checkov as `CKV_AWS_41`. Use environment variables or an IAM role instead.
+  </Tab>
+</Tabs>
+
+## Artifact
+
+Checkov uploads the entire `reports/` directory as the `checkov-report` artifact. This includes both the Markdown summary (`checkov.md`) and the raw JSON results (`checkov_results.json`), so you have full machine-readable data for further processing.

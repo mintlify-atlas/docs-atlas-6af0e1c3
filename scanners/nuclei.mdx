@@ -1,0 +1,89 @@
+---
+title: "Nuclei"
+description: "Dynamic application security testing against your running container"
+---
+
+[Nuclei](https://nuclei.projectdiscovery.io/) is a dynamic application security testing (DAST) tool. Unlike the other scanners in this bot, Nuclei does not analyze source code — it sends real HTTP requests to a live running instance of your application and looks for vulnerabilities in the responses.
+
+## DAST approach
+
+The Nuclei job builds and starts your application as a Docker container, then attacks it from within the same GitHub Actions runner:
+
+<Steps>
+  <Step title="Build the Docker image">
+    ```bash
+    docker build -t my-app:test .
+    ```
+    The image is built from the `Dockerfile` in the repository root.
+  </Step>
+  <Step title="Start the container">
+    ```bash
+    docker run -d -p 3000:8080 --name test-container my-app:test
+    ```
+    Port 8080 inside the container is mapped to port 3000 on the host, matching the `python3 -m http.server 8080` server defined in the example Dockerfile.
+  </Step>
+  <Step title="Wait for the app to be ready">
+    The workflow polls `http://localhost:3000` every second for up to 60 seconds. Once the app responds, the scan starts.
+  </Step>
+  <Step title="Run Nuclei against localhost:3000">
+    ```yaml
+    - uses: projectdiscovery/nuclei-action@main
+      with:
+        target: "http://localhost:3000"
+        flags: "-tags cve,misconfig,exposure,token -jsonl -o reports/nuclei.json"
+    ```
+  </Step>
+  <Step title="Parse the results and upload the report">
+    The JSON lines output is parsed into a Markdown table and uploaded as the `nuclei-report` artifact.
+  </Step>
+</Steps>
+
+<Note>
+Nuclei requires a `Dockerfile` in the repository root to build the test container. If no Dockerfile exists, the `docker build` step will fail and the job will not produce a scan report.
+</Note>
+
+<Warning>
+If the application does not respond on `localhost:3000` within **60 seconds**, the startup loop exits with code 1 and the scan is skipped. Check the container logs printed by the workflow (`docker logs test-container`) to diagnose startup failures.
+</Warning>
+
+## Template tags
+
+Nuclei runs against a large library of community-maintained templates. The bot filters templates to four tag categories:
+
+| Tag | What it covers |
+| :--- | :--- |
+| `cve` | Known CVEs with assigned identifiers (e.g., CVE-2021-44228 / Log4Shell) |
+| `misconfig` | Application and server misconfigurations (exposed debug endpoints, insecure headers) |
+| `exposure` | Unintentionally exposed files, directories, admin panels, and API endpoints |
+| `token` | Leaked tokens or credentials accessible via HTTP responses |
+
+## Report format
+
+The Markdown report shows the total count of issues and a table of findings:
+
+```markdown
+## Nuclei DAST Report
+
+Found **4** issues on Local Build.
+
+### Top Findings
+| Severity | Name |
+| :--- | :--- |
+| **critical** | CVE-2021-41773 Apache Path Traversal |
+| **high** | Exposed .env File |
+| **medium** | Missing X-Content-Type-Options Header |
+| **info** | Python HTTP Server Detected |
+```
+
+### Report columns
+
+| Column | Source field | Description |
+| :--- | :--- | :--- |
+| **Severity** | `info.severity` | critical, high, medium, low, or info |
+| **Name** | `info.name` | Human-readable template name describing the finding |
+
+The raw JSONL output is available in `reports/nuclei.json` within the `nuclei-report` artifact for full template metadata, matched URLs, and request/response details.
+
+## Artifact
+
+The scanner uploads `reports/nuclei.md` as the `nuclei-report` artifact. The container is stopped with `docker stop test-container` after the scan completes, regardless of whether the scan succeeded or failed (`if: always()`).

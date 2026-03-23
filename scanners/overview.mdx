@@ -1,0 +1,61 @@
+---
+title: "Security Scanners Overview"
+description: "Five industry-standard tools that scan your repository automatically"
+---
+
+Repo Security Bot runs **five security scanners** as parallel GitHub Actions jobs on every push, pull request, or scheduled trigger. Each scanner targets a different attack surface, so together they provide broad coverage with no overlap.
+
+<CardGroup cols={2}>
+  <Card title="Gitleaks" icon="key" href="/scanners/gitleaks">
+    Detect hardcoded secrets, API keys, tokens, and credentials committed to your repository.
+  </Card>
+  <Card title="Bandit" icon="snake" href="/scanners/bandit">
+    Static analysis for Python security vulnerabilities including injections, unsafe subprocess use, and weak crypto.
+  </Card>
+  <Card title="Checkov" icon="server" href="/scanners/checkov">
+    Infrastructure-as-Code misconfiguration scanning for Terraform, CloudFormation, Kubernetes, and Serverless.
+  </Card>
+  <Card title="Nuclei" icon="radar" href="/scanners/nuclei">
+    Dynamic application security testing against your running container using community CVE and misconfiguration templates.
+  </Card>
+  <Card title="Dockle" icon="docker" href="/scanners/dockle">
+    Docker image hardening checks against CIS Docker Benchmark and container best practices.
+  </Card>
+</CardGroup>
+
+## Scanner summary
+
+| Scanner | Language / Target | What it detects | Report artifact |
+| :--- | :--- | :--- | :--- |
+| **Gitleaks** | Any language, git history | Hardcoded secrets, API keys, tokens, credentials | `gitleaks-report` |
+| **Bandit** | Python (`.py` files) | Injections, unsafe subprocess, weak crypto, insecure calls | `bandit-report` |
+| **Checkov** | Terraform (`.tf` files) | IaC misconfigurations, open security groups, missing encryption | `checkov-report` |
+| **Nuclei** | Running Docker container | CVEs, misconfigurations, exposed endpoints, leaked tokens | `nuclei-report` |
+| **Dockle** | Docker image | CIS benchmark violations, image hardening issues | `dockle-report` |
+
+## Parallel execution
+
+All five scanners are defined as separate `workflow_call` workflows and are triggered simultaneously from the main orchestrator workflow. This means the total scan time equals the slowest individual scanner, not the sum of all five.
+
+```yaml
+jobs:
+  call-bot:
+    uses: arinagrawal05/repo-security-bot/.github/workflows/repo-security-bot.yml@main
+    secrets: inherit
+```
+
+Each job runs on a fresh `ubuntu-latest` runner, installs only what it needs, and uploads its own artifact independently.
+
+## Artifact naming convention
+
+Every scanner uploads a Markdown report as a named artifact at the end of its job. The artifact names follow the pattern `<scanner>-report`:
+
+| Artifact name | Contents |
+| :--- | :--- |
+| `gitleaks-report` | `reports/gitleaks.md` — Markdown table of detected secrets (no secret values) |
+| `bandit-report` | `reports/bandit.md` — Severity counts and top-15 issues table |
+| `checkov-report` | `reports/` directory — Markdown report plus raw JSON results |
+| `nuclei-report` | `reports/nuclei.md` — Count and severity table of DAST findings |
+| `dockle-report` | `reports/dockle.md` — FATAL/WARN/INFO issue tables |
+
+The summary bot downloads all five artifacts after the scans complete and aggregates them into a single `security-summary.md`, which is then posted as a GitHub Issue.

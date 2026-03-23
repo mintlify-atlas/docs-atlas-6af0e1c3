@@ -1,0 +1,85 @@
+---
+title: "Artifacts"
+description: "Download and inspect the raw scan reports as workflow artifacts"
+---
+
+Each scanner job uploads its output as a named GitHub Actions artifact using `actions/upload-artifact@v4`. This lets you download and inspect the raw reports independently of the aggregated summary, and enables downstream jobs to consume them programmatically.
+
+## Artifact reference
+
+| Artifact Name | Files | Scanner | Description |
+| :--- | :--- | :--- | :--- |
+| `gitleaks-report` | `gitleaks.md` | Gitleaks | Secrets scan — Markdown table of detected secrets (rule ID, file, line, author) |
+| `bandit-report` | `bandit.md` | Bandit | Python SAST — severity summary and details table (top 15 issues) |
+| `checkov-report` | `checkov.md` + full `reports/` directory | Checkov | IaC scan — Markdown report plus all intermediate JSON files |
+| `dockle-report` | `dockle.md` | Dockle | Docker image scan — FATAL / WARN / INFO summary and issue tables |
+| `nuclei-report` | `nuclei.md` | Nuclei | DAST scan — severity and finding name table from localhost scan |
+| `security-summary` | `security-summary.md` | (aggregated) | Combined report from all five scanners with a single footer |
+
+<Note>
+  Checkov is the only scanner that uploads the entire `reports/` directory rather than a single Markdown file. This means the `checkov-report` artifact contains additional files such as `checkov_results.json`, `checkov_output.log`, and any intermediate JSON files produced during the scan — useful for deeper analysis.
+</Note>
+
+## How each artifact is uploaded
+
+Every scanner workflow follows the same pattern using `actions/upload-artifact@v4`:
+
+```yaml
+# Example from scan-gitleaks.yml
+- name: Upload artifact
+  uses: actions/upload-artifact@v4
+  with:
+    name: gitleaks-report
+    path: reports/gitleaks.md
+```
+
+Checkov's upload path covers the full directory:
+
+```yaml
+# From scan-checkov.yml
+- name: Upload artifact
+  uses: actions/upload-artifact@v4
+  with:
+    name: checkov-report
+    path: reports/
+```
+
+## Downloading artifacts
+
+<Steps>
+  <Step title="Go to the Actions tab">
+    Open your repository on GitHub and click the **Actions** tab in the top navigation bar.
+  </Step>
+  <Step title="Select the workflow run">
+    Click on the workflow run you want to inspect. Runs are listed by branch, trigger event, and timestamp.
+  </Step>
+  <Step title="Scroll to the Artifacts section">
+    Scroll to the bottom of the workflow run summary page. All uploaded artifacts are listed under the **Artifacts** heading.
+  </Step>
+  <Step title="Click to download the ZIP">
+    Click any artifact name to download it as a `.zip` file. Extract it locally to access the Markdown and JSON files inside.
+  </Step>
+</Steps>
+
+## Artifact retention
+
+GitHub Actions retains artifacts for **90 days** by default. After that they are automatically deleted and can no longer be downloaded from the Actions UI. If you need longer retention, configure the `retention-days` option on the upload step:
+
+```yaml
+- uses: actions/upload-artifact@v4
+  with:
+    name: security-summary
+    path: reports/security-summary.md
+    retention-days: 180
+```
+
+<Tip>
+  Use `actions/download-artifact@v4` in any downstream job to pull artifacts programmatically for custom processing — for example, parsing the JSON files from `checkov-report` to enforce a hard failure threshold or send results to an external dashboard.
+
+  ```yaml
+  - uses: actions/download-artifact@v4
+    with:
+      name: checkov-report
+      path: checkov-results/
+  ```
+</Tip>

@@ -1,0 +1,114 @@
+---
+title: "Scheduling"
+description: "Configure automated scheduled security scans"
+---
+
+Repo Security Bot supports four trigger types that control when scans run. You can combine them freely in the `on:` block.
+
+## Trigger Types
+
+### `push` — Run on every push
+
+Runs the full scan suite whenever commits are pushed to the specified branches.
+
+```yaml
+on:
+  push:
+    branches: [ main ]   # change branch if needed
+```
+
+This is the most immediate feedback loop: every push to `main` gets scanned before it can go unnoticed.
+
+### `pull_request` — Run on every PR
+
+Runs on every pull request that is opened, synchronized (new commits pushed), or reopened.
+
+```yaml
+on:
+  pull_request:
+```
+
+This is particularly useful for enforcing security gates: if the scan finds critical issues, reviewers see the failing check directly on the PR before merging.
+
+### `schedule` — Time-based cron scans
+
+Runs the bot on a fixed schedule using standard cron syntax.
+
+```yaml
+on:
+  schedule:
+    - cron: "0 12 * * *"  # daily at 12:00 UTC
+```
+
+The example above (taken directly from the source workflow) runs every day at 12:00 UTC. Scheduled scans are useful for catching newly-disclosed CVEs that affect dependencies already in your codebase — even when no code changes have been made.
+
+<Note>
+  GitHub only runs scheduled workflows on the repository's **default branch**. If you change your default branch away from `main`, scheduled scans will run on the new default branch automatically.
+</Note>
+
+### `workflow_dispatch` — Manual trigger
+
+Adds a **Run workflow** button to the GitHub Actions UI, allowing any user with write access to trigger a scan on demand.
+
+```yaml
+on:
+  workflow_dispatch:
+```
+
+<Tip>
+  `workflow_dispatch` is invaluable during incident response. If a new vulnerability is disclosed (e.g., a zero-day affecting a library you use), you can immediately trigger a scan without waiting for the next scheduled run or pushing a dummy commit.
+</Tip>
+
+## Cron Syntax Reference
+
+Cron expressions use five space-separated fields:
+
+| Field | Range | Examples |
+|---|---|---|
+| Minute | `0–59` | `0` = top of the hour, `*/15` = every 15 minutes |
+| Hour | `0–23` | `12` = noon UTC, `0` = midnight UTC |
+| Day of month | `1–31` | `1` = 1st of month, `15` = 15th of month |
+| Month | `1–12` | `1` = January, `*/3` = every 3 months |
+| Day of week | `0–6` | `0` = Sunday, `1` = Monday |
+
+## Schedule Examples
+
+<Tabs>
+  <Tab title="Daily at 12:00 UTC">
+    ```yaml
+    schedule:
+      - cron: "0 12 * * *"
+    ```
+    Runs every day at noon UTC. This is the default example from the README.
+  </Tab>
+  <Tab title="Weekly (Monday 9:00 UTC)">
+    ```yaml
+    schedule:
+      - cron: "0 9 * * 1"
+    ```
+    Runs once per week on Monday morning at 09:00 UTC. Good for a weekly security review cadence.
+  </Tab>
+  <Tab title="Every 6 hours">
+    ```yaml
+    schedule:
+      - cron: "0 */6 * * *"
+    ```
+    Runs at 00:00, 06:00, 12:00, and 18:00 UTC every day. Suitable for high-churn repositories or compliance environments requiring frequent scans.
+  </Tab>
+</Tabs>
+
+## Combining All Four Triggers
+
+The recommended configuration uses all four triggers together:
+
+```yaml
+on:
+  push:
+    branches: [ main ]   # immediate scan on every push to main
+  pull_request:          # scan every PR before merge
+  schedule:
+    - cron: "0 12 * * *" # daily scan to catch new CVEs
+  workflow_dispatch:     # manual trigger for incident response
+```
+
+This gives you coverage across all scenarios: new code, in-review code, regressions from new disclosures, and on-demand investigation.

@@ -1,0 +1,86 @@
+---
+title: "Bandit"
+description: "Static analysis for Python security vulnerabilities"
+---
+
+[Bandit](https://bandit.readthedocs.io/) is a static analysis tool built specifically for Python. It parses each `.py` file into an AST and runs a set of plugins that check for common security issues.
+
+## What Bandit detects
+
+Bandit checks for a wide range of Python-specific security issues, including:
+
+- **Injection vulnerabilities** — SQL injection, shell injection via `subprocess`, `os.system`
+- **Unsafe subprocess use** — calls to `subprocess.call(shell=True)`, `os.popen`
+- **Weak cryptography** — use of MD5, SHA1, DES, or Blowfish for security-sensitive operations
+- **Hardcoded passwords** — string assignments that look like credentials
+- **Insecure random** — `random.random()` used where cryptographic randomness is required
+- **Insecure deserialization** — use of `pickle`, `yaml.load` without `Loader`
+- **XML vulnerabilities** — parsers susceptible to XXE attacks
+- **Assert statements** — using `assert` for security checks that can be optimized away
+
+<Note>
+Bandit is skipped gracefully if no `.py` files are found in the repository. The workflow checks with `find . -name "*.py" | grep -q .` before installing or running Bandit. If the check fails, the report contains: `No Python files found, skipped Bandit scan.` — and the job still succeeds so the rest of the pipeline continues.
+</Note>
+
+## Conditional execution
+
+The workflow only runs the Bandit scan when Python files are present:
+
+```bash
+# Check if any python files exist in current directory or subdirectories
+if find . -name "*.py" | grep -q .; then
+  pip install --upgrade pip bandit
+  # -r: recursive, -f: format, -o: output
+  bandit -r . -f json -o reports/bandit.json || true
+else
+  echo '{"message":"No Python files found, skipped Bandit scan."}' > reports/bandit.json
+fi
+```
+
+## Severity levels
+
+Bandit assigns each finding a severity and a confidence level. The report groups findings by severity:
+
+| Indicator | Severity | Meaning |
+| :--- | :--- | :--- |
+| 🔴 **HIGH** | High | Critical issue that very likely represents a real vulnerability |
+| 🟠 **MEDIUM** | Medium | Significant issue that warrants investigation |
+| 🟡 **LOW** | Low | Minor issue or potential weakness |
+
+## Report format
+
+The Markdown report has two sections: a summary with counts, and a details table.
+
+```markdown
+## Bandit Security Report
+
+### Summary
+- 🔴 **HIGH:** 2
+- 🟠 **MEDIUM:** 5
+- 🟡 **LOW:** 8
+- ⚪ **TOTAL:** 15
+
+### Details
+| Severity | Issue | File | Line |
+| :--- | :--- | :--- | :--- |
+| **HIGH** | hardcoded_password_string | med.py | 18 |
+| **MEDIUM** | request_with_no_cert_validation | med.py | 59 |
+| **LOW** | try_except_pass | med.py | 100 |
+```
+
+### Details table columns
+
+| Column | Source field | Description |
+| :--- | :--- | :--- |
+| **Severity** | `issue_severity` | HIGH, MEDIUM, or LOW |
+| **Issue** | `test_name` | The Bandit test that fired (e.g., `hardcoded_password_string`) |
+| **File** | `filename` | Path to the file containing the issue |
+| **Line** | `line_number` | Line number of the offending code |
+
+<Note>
+The Markdown report shows a maximum of **15 issues** to keep the GitHub Issue comment readable. The full findings for every issue are available in the `bandit-report` artifact as the complete JSON output from `bandit -r . -f json`.
+</Note>
+
+## Artifact
+
+The scanner uploads the Markdown report as the `bandit-report` artifact (`reports/bandit.md`). The full JSON output is not included in the uploaded artifact — download or inspect the workflow logs if you need the raw data.

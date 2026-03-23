@@ -1,0 +1,118 @@
+---
+title: "Dockle"
+description: "Docker image security hardening and CIS benchmark checks"
+---
+
+[Dockle](https://github.com/goodwithtech/dockle) is a container image linter that checks your Docker image against the CIS Docker Benchmark and a set of best-practice hardening rules.
+
+## What Dockle checks
+
+- **CIS Docker Benchmark** — official security configuration guidelines published by the Center for Internet Security
+- **Image hardening** — root user, sensitive files, environment variable secrets, unnecessary tools
+- **Build best practices** — tag pinning, layer hygiene, use of `COPY` vs `ADD`, healthcheck presence
+
+## Dockerfile auto-detection
+
+The workflow checks for a Dockerfile in two locations before building:
+
+```bash
+if [ -f "Dockerfile" ]; then
+  echo "dockerfile=Dockerfile" >> $GITHUB_OUTPUT
+elif [ -f "Dockerfile.txt" ]; then
+  echo "dockerfile=Dockerfile.txt" >> $GITHUB_OUTPUT
+fi
+```
+
+If neither file is found, the Dockle scan is skipped and the report contains `No Dockerfile found, skipped Dockle scan.`
+
+## Severity levels
+
+Dockle assigns each finding one of four severity levels:
+
+| Level | Indicator | Meaning |
+| :--- | :--- | :--- |
+| **FATAL** | 🔴 | Critical violation — image should not be deployed |
+| **WARN** | 🟡 | Significant issue that should be addressed |
+| **INFO** | 🟢 | Minor or informational finding |
+| **PASS** | ✅ | Check passed with no issues |
+
+## Report format
+
+The Markdown report has a summary block followed by separate tables for each severity level:
+
+```markdown
+## Dockle Security Summary
+
+### Summary
+- 🔴 **FATAL:** 3
+- 🟡 **WARN:** 2
+- 🟢 **INFO:** 1
+- ✅ **PASS:** 12
+
+### FATAL Issues
+| Code | Message |
+|------|----------|
+| CIS-DI-0001 | Create a user for the container |
+| DKL-DI-0002 | Avoid sensitive directory |
+
+### WARN Issues
+| Code | Message |
+|------|----------|
+| DKL-DI-0001 | Avoid latest tag |
+| DKL-DI-0004 | Use COPY instead of ADD |
+
+### INFO Issues
+| Code | Message |
+|------|----------|
+| CIS-DI-0005 | Enable Content trust for Docker |
+```
+
+## Example findings from the source Dockerfile
+
+The repository includes an intentionally insecure `Dockerfile` that demonstrates what Dockle catches. Each bad practice is annotated with the check code that fires:
+
+```dockerfile
+# [DKL-DI-0001] Avoid latest tag
+FROM ubuntu:latest
+
+# [DKL-DI-0006] Avoid sudo command
+RUN apt-get update && apt-get install -y sudo vim curl python3
+
+# [DKL-DI-0005] Clear apt-get caches (rm -rf /var/lib/apt/lists/* is missing)
+
+# [DKL-DI-0004] Use COPY instead of ADD
+ADD . /app
+
+# [DKL-DI-0002] Avoid sensitive directory or file
+# [CIS-DI-0007] Alert: Avoid env secrets (AWS keys in ENV instruction)
+ENV AWS_ACCESS_KEY_ID=AKIAIOSFODNN7EXAMPLE
+ENV AWS_SECRET_ACCESS_KEY=wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
+
+# [CIS-DI-0001] Create a user for the container (USER instruction is absent)
+# [CIS-DI-0006] Add HEALTHCHECK instruction to the container image
+```
+
+## Common check codes
+
+| Code | Severity | Description |
+| :--- | :--- | :--- |
+| `DKL-DI-0001` | WARN | Avoid using the `latest` tag — pin to a specific version for reproducible builds |
+| `DKL-DI-0002` | FATAL | Avoid storing sensitive files or directories in the image |
+| `DKL-DI-0004` | WARN | Use `COPY` instead of `ADD` — `ADD` can fetch remote URLs and extract archives |
+| `DKL-DI-0005` | WARN | Clear apt-get caches after installing packages to reduce attack surface and image size |
+| `DKL-DI-0006` | FATAL | Avoid installing `sudo` — it undermines container isolation |
+| `CIS-DI-0001` | FATAL | Create a non-root user and use the `USER` instruction |
+| `CIS-DI-0005` | INFO | Enable Docker Content Trust to verify image signatures |
+| `CIS-DI-0006` | WARN | Add a `HEALTHCHECK` instruction so container orchestrators can monitor the service |
+| `CIS-DI-0007` | FATAL | Do not store secrets in `ENV` instructions — they are visible in `docker inspect` |
+
+<Tip>
+Two changes eliminate the majority of FATAL and WARN findings in most Dockerfiles:
+
+1. **Use a non-root user.** Add `RUN useradd -r appuser && chown -R appuser /app` and `USER appuser` before the `CMD` instruction.
+2. **Use multi-stage builds.** Build in one stage with full tooling, then `COPY` only the compiled artifact into a minimal base image (e.g., `gcr.io/distroless/static`). This removes build tools, package managers, and their vulnerabilities from the final image.
+</Tip>
+
+## Artifact
+
+The scanner uploads `reports/dockle.md` as the `dockle-report` artifact.

@@ -1,0 +1,153 @@
+---
+title: "Workflow Setup"
+description: "Configure the Repo Security Bot reusable workflow in your repository"
+---
+
+Repo Security Bot is a reusable workflow hosted at `arinagrawal05/repo-security-bot`. To use it, you create a single workflow file in your own repository that calls it.
+
+<Note>
+  Place this file at `.github/workflows/run-security-bot.yml` in your repository.
+</Note>
+
+## Complete Workflow File
+
+Copy the following into `.github/workflows/run-security-bot.yml`:
+
+```yaml
+name: "Run Security Bot"
+
+on:
+  push:
+    branches: [ main ]   # change branch if needed
+  pull_request:
+  schedule:
+    - cron: "0 12 * * *"  # OPTIONAL: run daily at 12:00 UTC
+  workflow_dispatch:      # manual trigger
+
+permissions:
+  contents: read
+  issues: write
+  checks: write
+  actions: read
+  pull-requests: write
+
+jobs:
+  call-bot:
+    uses: arinagrawal05/repo-security-bot/.github/workflows/repo-security-bot.yml@main
+    
+    secrets: inherit    # passes your repo secrets (SNYK_TOKEN, etc.)
+```
+
+## Walkthrough
+
+<Steps>
+  <Step title="The `uses:` key">
+    ```yaml
+    jobs:
+      call-bot:
+        uses: arinagrawal05/repo-security-bot/.github/workflows/repo-security-bot.yml@main
+    ```
+
+    This is a [reusable workflow](https://docs.github.com/en/actions/sharing-automations/reusing-workflows) call. Instead of defining job steps yourself, you delegate execution to the workflow file hosted in the `arinagrawal05/repo-security-bot` repository.
+
+    The format is: `{owner}/{repo}/.github/workflows/{file}@{ref}`
+
+    - `arinagrawal05/repo-security-bot` — the repository that hosts the bot
+    - `.github/workflows/repo-security-bot.yml` — the entry-point workflow inside that repo
+    - `@main` — the Git ref (branch, tag, or SHA) to use
+  </Step>
+
+  <Step title="`secrets: inherit`">
+    ```yaml
+    secrets: inherit
+    ```
+
+    Passes all secrets from your repository to the called workflow. This is required for any scanner that needs credentials — for example, if a future integration requires `SNYK_TOKEN`, it will be forwarded automatically without any extra configuration.
+
+    Without `secrets: inherit`, the reusable workflow would only have access to secrets explicitly mapped with `secrets:` key-value pairs.
+  </Step>
+
+  <Step title="The `on:` triggers section">
+    ```yaml
+    on:
+      push:
+        branches: [ main ]
+      pull_request:
+      schedule:
+        - cron: "0 12 * * *"
+      workflow_dispatch:
+    ```
+
+    This controls when the bot runs. The example configures four triggers:
+
+    - **`push`** — runs on every push to `main`
+    - **`pull_request`** — runs on every pull request opened or updated
+    - **`schedule`** — runs daily at 12:00 UTC using a cron expression
+    - **`workflow_dispatch`** — adds a manual "Run workflow" button in the GitHub Actions UI
+
+    See the [Scheduling](/configuration/scheduling) page for a full breakdown of each trigger.
+  </Step>
+
+  <Step title="`permissions` block">
+    ```yaml
+    permissions:
+      contents: read
+      issues: write
+      checks: write
+      actions: read
+      pull-requests: write
+    ```
+
+    Declares the GitHub token permissions the workflow requires. These are passed down to the reusable workflow. See the [Permissions](/configuration/permissions) page for a detailed explanation of each entry.
+  </Step>
+</Steps>
+
+## Customizing the Branch
+
+By default, the `push` trigger watches the `main` branch. To watch a different branch, change the value under `branches`:
+
+```yaml
+on:
+  push:
+    branches: [ develop ]   # watch the develop branch instead
+```
+
+You can specify multiple branches:
+
+```yaml
+on:
+  push:
+    branches:
+      - main
+      - develop
+      - release/*
+```
+
+## Pinning to a Specific Version
+
+Using `@main` always pulls the latest commit on the `main` branch of the bot repository. This is convenient but means updates to the bot are applied automatically, which could introduce unexpected changes.
+
+For production environments, pin to a specific version tag or commit SHA:
+
+<Tabs>
+  <Tab title="Version tag">
+    ```yaml
+    jobs:
+      call-bot:
+        uses: arinagrawal05/repo-security-bot/.github/workflows/repo-security-bot.yml@v1.0.0
+        secrets: inherit
+    ```
+
+    Using a tag like `@v1.0.0` gives you a stable, human-readable reference that the bot maintainer controls.
+  </Tab>
+  <Tab title="Commit SHA">
+    ```yaml
+    jobs:
+      call-bot:
+        uses: arinagrawal05/repo-security-bot/.github/workflows/repo-security-bot.yml@a3f8c2d
+        secrets: inherit
+    ```
+
+    Using a full commit SHA is the most secure option — it is immutable and cannot be reassigned, unlike a branch or tag name.
+  </Tab>
+</Tabs>
