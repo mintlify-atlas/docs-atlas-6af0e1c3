@@ -1,0 +1,74 @@
+{
+  "projectType": "infrastructure",
+  "projectName": "Repo Security Bot",
+  "projectDescription": "A plug-and-play GitHub Actions security scanner that automatically runs five industry-standard tools (Gitleaks, Bandit, Checkov, Nuclei, Dockle) on every push, pull request, or scheduled scan, aggregating results into a security summary and GitHub Issue.",
+  "theme": "aspen",
+  "primaryColor": "#848c8e",
+  "lightColor": "#11161e",
+  "darkColor": "#cfd0d2",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": ["introduction", "quickstart"]
+          },
+          {
+            "group": "Security Scanners",
+            "pages": [
+              "scanners/overview",
+              "scanners/gitleaks",
+              "scanners/bandit",
+              "scanners/checkov",
+              "scanners/nuclei",
+              "scanners/dockle"
+            ]
+          },
+          {
+            "group": "Configuration",
+            "pages": [
+              "configuration/workflow-setup",
+              "configuration/permissions",
+              "configuration/scheduling"
+            ]
+          },
+          {
+            "group": "Reports & Output",
+            "pages": [
+              "reports/security-summary",
+              "reports/github-issues",
+              "reports/artifacts"
+            ]
+          },
+          {
+            "group": "Operations",
+            "pages": [
+              "operations/troubleshooting",
+              "operations/faq"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Five integrated security scanners: Gitleaks, Bandit, Checkov, Nuclei, Dockle",
+    "Zero-setup reusable GitHub Actions workflow via workflow_call",
+    "Automatic GitHub Issue creation with aggregated security findings",
+    "Supports push, pull request, scheduled (cron), and manual triggers",
+    "Generates clean Markdown reports with severity counts and actionable findings",
+    "Scans secrets, Python code, IaC misconfigurations, DAST vulnerabilities, and Docker images"
+  ],
+  "publicApiSurface": [
+    "arinagrawal05/repo-security-bot/.github/workflows/repo-security-bot.yml@main (reusable workflow)",
+    "scan-gitleaks.yml (hardcoded secrets and credentials detection)",
+    "scan-bandit.yml (Python SAST security scanning)",
+    "scan-checkov.yml (Terraform/IaC misconfiguration scanning)",
+    "scan-nuclei.yml (DAST vulnerability scanning via localhost)",
+    "scan-dockle.yml (Docker image security and best practices)",
+    "security-summary.md (aggregated report artifact)",
+    "GitHub Issue with full security findings (auto-created)"
+  ]
+}
