@@ -102,14 +102,14 @@ After all five scanners finish, a summary job collects their outputs and:
 - Generates a `security-summary.md` combining all findings
 - Uploads the following artifacts to the workflow run:
   ```
-  security-summary.md
-  gitleaks.json / gitleaks.md
-  bandit.json / bandit.md
-  checkov.json / checkov.md
-  nuclei.json / nuclei.md
-  dockle.json / dockle.md
+  security-summary        → security-summary.md
+  gitleaks-report         → gitleaks.md
+  bandit-report           → bandit.md
+  checkov-report          → checkov.md + full reports/ directory
+  nuclei-report           → nuclei.md
+  dockle-report           → dockle.md
   ```
-- Opens a GitHub Issue titled **"Security Summary Report: YYYY-MM-DD"** containing the full report with scanner sections, markdown tables, severity counts, actionable findings, and recommended fixes
+- Opens a GitHub Issue titled **"🔒 Security Summary Report: YYYY-MM-DD"** containing the full report with scanner sections, markdown tables, severity counts, and actionable findings
 
 The issue is ready for triage immediately after the run completes.
 

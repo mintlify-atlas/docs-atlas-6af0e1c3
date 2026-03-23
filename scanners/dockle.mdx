@@ -96,10 +96,10 @@ ENV AWS_SECRET_ACCESS_KEY=wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
 
 | Code | Severity | Description |
 | :--- | :--- | :--- |
-| `DKL-DI-0001` | WARN | Avoid using the `latest` tag — pin to a specific version for reproducible builds |
+| `DKL-DI-0001` | WARN | Avoid using the `latest` tag and avoid running the container as root — pin to a specific version for reproducible builds |
 | `DKL-DI-0002` | FATAL | Avoid storing sensitive files or directories in the image |
 | `DKL-DI-0004` | WARN | Use `COPY` instead of `ADD` — `ADD` can fetch remote URLs and extract archives |
-| `DKL-DI-0005` | WARN | Clear apt-get caches after installing packages to reduce attack surface and image size |
+| `DKL-DI-0005` | WARN | Clear apt-get caches after installing packages (`rm -rf /var/lib/apt/lists/*`) to reduce attack surface and image size |
 | `DKL-DI-0006` | FATAL | Avoid installing `sudo` — it undermines container isolation |
 | `CIS-DI-0001` | FATAL | Create a non-root user and use the `USER` instruction |
 | `CIS-DI-0005` | INFO | Enable Docker Content Trust to verify image signatures |

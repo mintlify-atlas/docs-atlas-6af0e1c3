@@ -83,4 +83,4 @@ The Markdown report shows a maximum of **15 issues** to keep the GitHub Issue co
 
 ## Artifact
 
-The scanner uploads the Markdown report as the `bandit-report` artifact (`reports/bandit.md`). The full JSON output is not included in the uploaded artifact — download or inspect the workflow logs if you need the raw data.
+The scanner uploads only the Markdown report as the `bandit-report` artifact (`reports/bandit.md`). The raw JSON from `bandit -r . -f json` is written to `reports/bandit.json` during the run but is **not uploaded** — it is discarded after the job completes. The Markdown report contains all the information needed for triage.

@@ -7,20 +7,23 @@ description: "Infrastructure-as-Code security and misconfiguration scanning"
 
 ## What Checkov scans
 
-Checkov supports multiple IaC frameworks. The bot runs it with `--framework terraform`, targeting `.tf` files in the repository:
+The bot runs Checkov with `--framework terraform`, scanning all `.tf` files found in the repository directory tree:
 
 ```bash
 checkov --directory . --framework terraform --output json \
   --output-file-path reports
 ```
 
-Checkov can also scan:
+This targets Terraform HCL files for misconfigurations such as:
 
-- **CloudFormation** — AWS template YAML/JSON
-- **Kubernetes** — deployment manifests, RBAC configs
-- **Serverless** — `serverless.yml` definitions
-- **Dockerfile** — (overlaps with Dockle)
-- **Helm** charts, **Ansible** playbooks, **Bicep** templates
+- Public S3 bucket ACLs and missing encryption
+- Overly permissive security group ingress rules (e.g., `0.0.0.0/0` on all ports)
+- Hardcoded AWS credentials in provider blocks
+- Disabled versioning, missing access logging, absent lifecycle policies
+
+<Note>
+The bot is configured for Terraform only (`--framework terraform`). Checkov itself supports many additional IaC frameworks (CloudFormation, Kubernetes, Serverless, Helm, Dockerfile, Ansible, Bicep), but those are not scanned by the current workflow configuration.
+</Note>
 
 <Tip>
 Fix IaC issues before they reach production. A misconfigured S3 bucket or open security group in a Terraform file will be deployed exactly as written — Checkov catches these misconfigurations at the PR stage, before `terraform apply` runs.

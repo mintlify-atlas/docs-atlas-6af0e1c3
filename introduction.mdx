@@ -3,12 +3,6 @@ title: "Repo Security Bot"
 description: "Automated security scanning for GitHub repositories — five tools, zero setup."
 ---
 
-<img
-  src="https://media.brand.dev/5ffd6ce4-2434-4b4b-920a-f8cacac8b48b.svg"
-  alt="Repo Security Bot"
-  style={{ maxWidth: "260px", marginBottom: "2rem" }}
-/>
-
 ## What is Repo Security Bot?
 
 **Repo Security Bot** is a plug-and-play GitHub Actions security scanner that automatically runs **five industry-standard security tools** on every push, pull request, or scheduled scan.
@@ -73,7 +67,7 @@ It aggregates all findings into a clean `security-summary.md` and automatically 
     Run on push, pull request, manual dispatch, or on a daily/weekly cron schedule.
   </Card>
   <Card title="Artifact exports" icon="box-archive">
-    Raw JSON and clean Markdown reports are uploaded as workflow artifacts for every scan.
+    Clean Markdown reports are uploaded as workflow artifacts for every scan. Checkov also includes raw JSON results.
   </Card>
   <Card title="Secrets-safe reporting" icon="eye-slash">
     Gitleaks reports omit actual secret values — only rule ID, file, and line are reported.

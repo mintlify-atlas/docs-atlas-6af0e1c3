@@ -43,14 +43,20 @@ description: "Frequently asked questions about Repo Security Bot"
   </Accordion>
 
   <Accordion title="What happens if my Dockerfile fails to build for Nuclei?">
-    The `docker build` step in `scan-nuclei.yml` does not use `|| true`, so a build failure will cause that step to fail. However, because scanner jobs use `continue-on-error: true` at the step level where applicable, the workflow continues.
+    The `docker build` step in `scan-nuclei.yml` runs without a `|| true` fallback:
 
-    If the container fails to build, Nuclei will be unable to start the application and the report will contain:
+    ```bash
+    docker build -t my-app:test .
+    ```
 
-    > No vulnerabilities found (or scan failed to connect).
+    A build failure causes the step — and the entire `dast-local` job — to fail. Because the Nuclei job is listed in the `needs:` of `generate-summary`, a failure here may cause the summary job to skip the Nuclei section.
+
+    If the container starts but the app does not respond within 60 seconds, the `Start Container` step exits with code 1 (`APP FAILED TO START`) and prints `docker logs test-container`. The Nuclei report will show:
+
+    > ✅ No vulnerabilities found (or scan failed to connect).
 
     <Warning>
-      Review the **Build Docker Image** step in the Actions log if Nuclei consistently reports no findings — it may indicate a silent build failure.
+      Review the **Build Docker Image** and **Start Container** steps in the Actions log if Nuclei consistently reports no findings — they may indicate a build or startup failure.
     </Warning>
   </Accordion>
 

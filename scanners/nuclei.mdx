@@ -82,8 +82,6 @@ Found **4** issues on Local Build.
 | **Severity** | `info.severity` | critical, high, medium, low, or info |
 | **Name** | `info.name` | Human-readable template name describing the finding |
 
-The raw JSONL output is available in `reports/nuclei.json` within the `nuclei-report` artifact for full template metadata, matched URLs, and request/response details.
-
 ## Artifact
 
-The scanner uploads `reports/nuclei.md` as the `nuclei-report` artifact. The container is stopped with `docker stop test-container` after the scan completes, regardless of whether the scan succeeded or failed (`if: always()`).
+The scanner uploads only `reports/nuclei.md` as the `nuclei-report` artifact. The raw JSONL file (`reports/nuclei.json`) is used internally to generate the Markdown report but is **not uploaded**. The container is stopped with `docker stop test-container` after the scan completes, regardless of whether the scan succeeded or failed (`if: always()`).
